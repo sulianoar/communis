@@ -106,8 +106,10 @@ net.createServer(function(socket) {
         if (clientMessage.code === "HELLO"){ // If it is a new worker connection
             var workerClientExist = workersClients.findIndex(w => (w.id === clientMessage.worker_id) ); // Search for this client in workersClients
             if (workerClientExist >= 0){
-                console.log('[ ! ] '+clientMessage.worker_id +' already exist...');
-                socket.end();
+                console.log('[ ! ] '+clientMessage.worker_id +' already exist, kill both and waiting for a new HELLO');
+                workersClients[workersClients.findIndex(w => (w.id === clientMessage.worker_id) )].socket.end(); // kill old socket
+                workersClients = workersClients.filter(w => { return w.id !== clientMessage.worker_id; }); // clean worker list
+                socket.end(); // kill current socket
             }else{ // Create new worker
                 workersClients.push(new Worker(clientMessage.worker_id, socket));
                 console.log('   [ + ] ' + clientMessage.worker_id+ ' connected from ' + socket.remoteAddress +':'+ socket.remotePort); 

@@ -93,7 +93,7 @@ function execJob(data){
         job.time_to_calc = (Math.floor(Date.now()) - data.pool);
         job.result = job.result;
         job.status = exitCode;
-        client.write(JSON.stringify(job));
+        setTimeout(function () { client.write(JSON.stringify(job)); }, 1000); // We need to wait in case of previously stdout listener just send data (avoid dual job on same socket)
     })
 }
 

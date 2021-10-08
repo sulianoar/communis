@@ -98,9 +98,10 @@ server.put('/kill/:pool', function(request, response){
 
 server.listen(webClientPort);
 console.log('[ + ] Master listening for REST API request on ' + masterAdress +':'+ webClientPort);
-
+  
 net.createServer(function(socket) {
     socket.on('data', function(data) {
+
         var clientMessage = JSON.parse(data.toString());
 
         if (clientMessage.code === "HELLO"){ // If it is a new worker connection

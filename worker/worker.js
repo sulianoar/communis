@@ -59,7 +59,6 @@ client.on('data', function(data) {
 
 client.on('close', function() {
     console.log('Socket closed');
-    connect();
 });
 
 connect()

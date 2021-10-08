@@ -59,9 +59,7 @@ client.on('data', function(data) {
 
 client.on('close', function() {
     console.log('Socket closed');
-    setTimeout(function() { 
-        connect();
-    }, waitBeforeRetryOnConnError);
+    connect();
 });
 
 connect()

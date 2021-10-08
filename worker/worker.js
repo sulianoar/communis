@@ -26,7 +26,6 @@ class Job {
     }
 }
 
-/* COMMUNICATION */
 function connect() {
     client.connect({ port: masterPort, host: masterAdress});
 }

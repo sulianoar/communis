@@ -1,17 +1,17 @@
 # Communis - Hardware
 
 <p align="center">
-  <img src="https://github.com/sulianoar/communis/blob/main/Hardware/pictures/front-close-min.jpg" width="450" title="front-close-min">
-    <img src="https://github.com/sulianoar/communis/blob/main/Hardware/pictures/front-open-min.jpg" width="450" title="front-open-min">
-  <img src="https://github.com/sulianoar/communis/blob/main/Hardware/pictures/up-min.jpg" width="450" alt="up">
-  <img src="https://github.com/sulianoar/communis/blob/main/Hardware/pictures/back-min.jpg" width="450" alt="back">
+  <img src="https://github.com/sulianoar/communis/blob/main/hardware/pictures/front-close-min.jpg" width="450" title="front-close-min">
+    <img src="https://github.com/sulianoar/communis/blob/main/hardware/pictures/front-open-min.jpg" width="450" title="front-open-min">
+  <img src="https://github.com/sulianoar/communis/blob/main/hardware/pictures/up-min.jpg" width="450" alt="up">
+  <img src="https://github.com/sulianoar/communis/blob/main/hardware/pictures/back-min.jpg" width="450" alt="back">
 </p>
 
 All Pi are powered by an official POE hat except the Master which use a Waveshare one with USB to power the fan.
 The main problem was with the case which is clearly overpriced and non-compliant since it cannot be used directly. I had to file down all holes to allow the Pi holder to fit. I also wanted to reverse all RJ45 port so i had to file holes for the screws too. The original fans were also very noisy, so I changed them with two noctua. I am still waiting for microSd card support ..
 
 <p align="center">
-  <img src="https://github.com/sulianoar/communis/blob/main/Hardware/pictures/file%20case.png" width="450" title="bad case">
+  <img src="https://github.com/sulianoar/communis/blob/main/hardware/pictures/file%20case.png" width="450" title="bad case">
 </p>
 
 Detailled part list :

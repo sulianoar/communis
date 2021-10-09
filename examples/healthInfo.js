@@ -19,6 +19,11 @@ const influx = new Influx.InfluxDB({
         measurement: "cpu",
         fields: { value: Influx.FieldType.FLOAT },
         tags: ["worker"]
+    },
+    {
+        measurement: "memory",
+        fields: { value: Influx.FieldType.FLOAT },
+        tags: ["worker"]
     }
   ]
 });
@@ -26,48 +31,59 @@ const influx = new Influx.InfluxDB({
 run();
 
 async function run(){
-    getTemperature().then(() => getMemory());
-    setTimeout(function() { run(); }, 5000);
+    let workers = await getWorkers();
+    getTemperature(workers);
+    getMemoryUsage(workers);
+    getCpuUsage(workers);
+    setTimeout(function() { run(); }, 5000); // Execute cmd every 5s
 }
 
-async function getTemperature(){
-    let workers = await getWorkers();
-    if (workers && workers.length > 0){
-        job = await createJob(workers.map(a => a.id), "vcgencmd measure_temp");
+async function getTemperature(w){
+    if (w && w.length > 0){
+        job = await createJob(w.map(a => a.id), "vcgencmd measure_temp");
         if (job){
-            setTimeout(async function () {
-                pool = await getPool(job.pool_id);
-                if (pool){
-                    for (let job of pool[0].jobs) {
-                        writeToDb(job.worker_id, parseFloat(job.result.match(/[\d.]+/)));
-                    }
-                }
-            }, 1000);
+            saveJobResult("temperature", job.pool_id);
         }
     }
 }
 
-async function getMemory(){
-    let workers = await getWorkers();
-    if (workers && workers.length > 0){
-        jobMemory = await createJob(workers.map(a => a.id), "./memory.sh")
-        if (jobMemory){
-            setTimeout(async function () {
-                poolMemory = await getPool(jobMemory.pool_id);
-                if (poolMemory){
-                    for (let job of poolMemory[0].jobs) {
-                        writeMemoryToDb(job.worker_id, parseInt(job.result));
-                    }
-                }
-            }, 1000);
+async function getMemoryUsage(w){
+    if (w && w.length > 0){
+        job = await createJob(w.map(a => a.id), "bash -c \"exec free -m | awk 'NR==2 {printf $3*100/$2}'\"");
+        if (job){
+            saveJobResult("memory", job.pool_id);
         }
     }
 }
 
+async function getCpuUsage(w){
+    if (w && w.length > 0){
+        job = await createJob(w.map(a => a.id), "bash -c \"top -bn1 | grep load | awk '{printf $(NF-2)}'\"");
+        if (job){
+            saveJobResult("cpu", job.pool_id);
+        }
+    }
+}
 
-function writeToDb(worker, value) {
+async function saveJobResult(measurement, poolId){
+    pool = await getPool(poolId);
+    if (pool && pool[0].status !== null){ // If all job is done
+        for (let job of pool[0].jobs) {
+            if (job.status === 0){ // If job is done without error we can save result to bdd
+                writeToDb(measurement, job.worker_id, parseFloat(job.result.match(/[\d.]+/)));
+            } else {
+                console.log("Job in pool "+poolId+" from "+job.worker_id+" finished with error")
+            }
+        }
+    } else{
+        setTimeout(function() { saveJobResult(measurement, poolId); }, 1000); // Retry to get result until status is done
+    }
+}
+
+
+function writeToDb(measurement, worker, value) {
     influx.writePoints([{
-        measurement: "temperature",
+        measurement: measurement,
         tags: { worker: worker },
         fields: { value: value }
     }],
@@ -79,22 +95,6 @@ function writeToDb(worker, value) {
       console.error("Error writing data to Influx.");
     });
 }
-
-function writeMemoryToDb(worker, value) {
-    influx.writePoints([{
-        measurement: "memory",
-        tags: { worker: worker },
-        fields: { value: value }
-    }],
-    {
-        database: "clusterdb",
-        precision: "s"
-    }).catch(err => {
-        console.log(err)
-      console.error("Error writing data to Influx.");
-    });
-}
-
 
 async function getWorkers(){
     return await fetch(masterApiAdress+"/workers").then(response => response.json());

@@ -65,8 +65,17 @@ client.on('error', (err) => {
     }
 })
 
+
 client.on('data', function(data) {
-    var masterMsg = JSON.parse(data.toString())
+    try {
+        execJob(JSON.parse(data.toString()));
+    } catch (error) {
+        console.error(error);
+        for (let d of data.toString().split(/(?={)/g)) { // Split multiple job from socket message 
+            execJob(JSON.parse(d));
+        }
+    }
+    
     if (masterMsg.code === "JOB"){
         execJob(masterMsg);
     }
@@ -83,33 +92,38 @@ client.on('close', function() {
 connect()
 
 function execJob(msg){
+    if (msg.code === "KILL"){
+        console.log("Killing pid : " +msg.pid);
+        process.kill(parseInt(msg.pid));
+    } 
+    if (msg.code === "JOB"){
+        let args = parseArgsStringToArgv(msg.cmd);
+        let cmd = args.shift();
 
-    let args = parseArgsStringToArgv(msg.cmd);
-    let cmd = args.shift();
+        let child = spawn(cmd, args, {detached: true, shell:true});
+        console.log("Running "+msg.cmd);
 
-    let child = spawn(cmd, args, {detached: true});
-    console.log("Running "+msg.cmd);
+        jobList.push(new Job("JOB", msg.pool, msg.cmd, child.pid, "" ,null, ""))
 
-    jobList.push(new Job("JOB", msg.pool, msg.cmd, child.pid, "" ,null, ""))
+        child.stdout.setEncoding('utf8');
 
-    child.stdout.setEncoding('utf8');
+        child.stdout.on('data', (data) => {
+            jobList[jobList.findIndex( j => (j.pool.toString() === msg.pool ))].result += data.replace(/[\n\r]/g, ""); // Concatenate stdout without line break
+        });  
 
-    child.stdout.on('data', (data) => {
-        jobList[jobList.findIndex( j => (j.pool.toString() === msg.pool ))].result += data.replace(/[\n\r]/g, ""); // Concatenate stdout without line break
-    });  
+        child.stderr.on('data', (data) => {
+            jobList[jobList.findIndex( j => (j.pool.toString() === msg.pool ))].result += data.replace(/[\n\r]/g, ""); // Concatenate stdout without line break
+        }); 
 
-    child.stderr.on('data', (data) => {
-        jobList[jobList.findIndex( j => (j.pool.toString() === msg.pool ))].result += data.replace(/[\n\r]/g, ""); // Concatenate stdout without line break
-    }); 
-
-    child.on('error', (err) => {
-        console.log(err.message);
-    }); 
-    
-    child.on('exit', function(exitCode) {
-        jobList[jobList.findIndex( j => (j.pool.toString() === msg.pool ))].time_to_calc = (Math.floor(Date.now()) - msg.pool);
-        jobList[jobList.findIndex( j => (j.pool.toString() === msg.pool ))].status = exitCode;
-    })
+        child.on('error', (err) => {
+            console.log(err.message);
+        }); 
+        
+        child.on('exit', function(exitCode) {
+            jobList[jobList.findIndex( j => (j.pool.toString() === msg.pool ))].time_to_calc = (Math.floor(Date.now()) - msg.pool);
+            jobList[jobList.findIndex( j => (j.pool.toString() === msg.pool ))].status = exitCode;
+        })
+    }
 
 }
 

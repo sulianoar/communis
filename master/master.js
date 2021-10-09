@@ -6,7 +6,7 @@ const net = require('net');
 const express = require('express');
 const bodyParser = require('body-parser');
 
-const masterAdress = '10.10.0.1';
+const masterAdress = '127.0.0.1';
 const masterPort = 7000;
 const webClientPort = 80;
 const poolRetention = 300000; // 5minutes
@@ -101,32 +101,32 @@ console.log('[ + ] Master listening for REST API request on ' + masterAdress +':
   
 net.createServer(function(socket) {
     socket.on('data', function(data) {
+        let raw = data.toString().split("EOM").filter(function(value, index, arr){ return value !== '';});
+        for (r of raw){
+            var clientMessage = JSON.parse(r);
 
-        var clientMessage = JSON.parse(data.toString());
-
-        if (clientMessage.code === "HELLO"){ // If it is a new worker connection
-            var workerClientExist = workersClients.findIndex(w => (w.id === clientMessage.worker_id) ); // Search for this client in workersClients
-            if (workerClientExist >= 0){
-                console.log('[ ! ] '+clientMessage.worker_id +' already exist, kill old one');
-                workersClients[workersClients.findIndex(w => (w.id === clientMessage.worker_id) )].socket.end(); // kill old socket
-                workersClients = workersClients.filter(w => { return w.id !== clientMessage.worker_id; }); // clean worker list
-                workersClients.push(new Worker(clientMessage.worker_id, socket)); // Save new one
-            }else{ // Create new worker
-                workersClients.push(new Worker(clientMessage.worker_id, socket));
-                console.log('   [ + ] ' + clientMessage.worker_id+ ' connected from ' + socket.remoteAddress +':'+ socket.remotePort); 
-            }
-        }else {
-            if (clientMessage.code === "JOBS"){
-                for (let job of clientMessage.jobs) {
-                    let poolIndex = poolList.findIndex( p => (p.id.toString() === job.pool )); // Search for this pool in poolList
-                    let jobIndex = poolList[poolIndex].jobs.findIndex( (j) => j.worker_id === job.worker_id ); // Search for this job in that pool
+            if (clientMessage.code === "HELLO"){ // If it is a new worker connection
+                var workerClientExist = workersClients.findIndex(w => (w.id === clientMessage.worker_id) ); // Search for this client in workersClients
+                if (workerClientExist >= 0){
+                    console.log('[ ! ] '+clientMessage.worker_id +' already exist, kill old one');
+                    workersClients[workersClients.findIndex(w => (w.id === clientMessage.worker_id) )].socket.end(); // kill old socket
+                    workersClients = workersClients.filter(w => { return w.id !== clientMessage.worker_id; }); // clean worker list
+                    workersClients.push(new Worker(clientMessage.worker_id, socket)); // Save new one
+                }else{ // Create new worker
+                    workersClients.push(new Worker(clientMessage.worker_id, socket));
+                    console.log('   [ + ] ' + clientMessage.worker_id+ ' connected from ' + socket.remoteAddress +':'+ socket.remotePort); 
+                }
+            }else {
+                if (clientMessage.code === "JOB"){
+                    let poolIndex = poolList.findIndex( p => (p.id.toString() === clientMessage.pool )); // Search for this pool in poolList
+                    let jobIndex = poolList[poolIndex].jobs.findIndex( (j) => j.worker_id === clientMessage.worker_id ); // Search for this job in that pool
                     if ( jobIndex > -1 ){
-                        poolList[poolIndex].jobs[jobIndex].result = job.result;
-                        poolList[poolIndex].jobs[jobIndex].pid = job.pid;
-                        poolList[poolIndex].jobs[jobIndex].status = job.status;
-                        poolList[poolIndex].jobs[jobIndex].time_to_calc = job.time_to_calc;
-                        if (job.status !== null){ // Finished with or without error
-                            console.log('       [ - ] ' +job.worker_id +" finished job '"+job.cmd+"' du pool "+job.pool + " in "+ job.time_to_calc);
+                        poolList[poolIndex].jobs[jobIndex].result = clientMessage.result;
+                        poolList[poolIndex].jobs[jobIndex].pid = clientMessage.pid;
+                        poolList[poolIndex].jobs[jobIndex].status = clientMessage.status;
+                        poolList[poolIndex].jobs[jobIndex].time_to_calc = clientMessage.time_to_calc;
+                        if (clientMessage.status !== null){ // Finished with or without error
+                            console.log('       [ - ] ' +clientMessage.worker_id +" finished job '"+clientMessage.cmd+"' du pool "+clientMessage.pool + " in "+ clientMessage.time_to_calc);
                             if(poolList[poolIndex].jobs.findIndex( (j) => j.status === null ) === -1) { // If there are no more running job in this pool
                                 // If there no error on all job status in this pool, we can set status at 0, else we set it to 1 (exit with error)
                                 if(poolList[poolIndex].jobs.findIndex( (j) => j.status === 1 ) === -1){
@@ -173,7 +173,7 @@ function execJob(poolId, workers, cmd){
         let currentWorkerIndex = workersClients.findIndex(wo => (wo.id === w));
         let worker = workersClients[currentWorkerIndex];
         let job = new Job("JOB", poolId.toString(),cmd, null, null, null , worker.id, null);
-        worker.socket.write(JSON.stringify(job));
+        worker.socket.write(JSON.stringify(job)+"EOM");
         workersJobs.push(job);
     }
     poolList.push(new Pool(poolId, null, workersJobs, null));
@@ -185,7 +185,7 @@ function killJob(workers, poolId){
         let worker = workersClients[currentWorkerIndex];
         let jobs = poolList[poolList.findIndex( p => (p.id.toString() === poolId ))].jobs;
         let pidToKill = jobs[jobs.findIndex( j => (j.worker_id === w ))].pid;
-        worker.socket.write(JSON.stringify({"code" : "KILL", "pid" : pidToKill}));
+        worker.socket.write(JSON.stringify({"code" : "KILL", "pid" : pidToKill})+"EOM");
     }
 }
 

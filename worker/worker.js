@@ -26,6 +26,25 @@ class Job {
     }
 }
 
+var jobList = [];
+var previousJobList = [];
+
+function writeToClientroutine(){
+    setTimeout(function () { 
+        if (jobList !== previousJobList && jobList.length > 0){ // Send to master only on object modification
+            client.write(JSON.stringify({"code":"JOBS", "jobs":jobList})); 
+            previousJobList = jobList;
+            // Cleanup finished job and already sent to master
+            jobList = jobList.filter(j => {
+                return j.status === null;
+            });
+        }
+        writeToClientroutine();
+    }, 3000);
+}
+
+writeToClientroutine();
+
 function connect() {
     client.connect({ port: masterPort, host: masterAdress});
 }
@@ -63,26 +82,24 @@ client.on('close', function() {
 
 connect()
 
-function execJob(data){
+function execJob(msg){
 
-    let args = parseArgsStringToArgv(data.cmd);
+    let args = parseArgsStringToArgv(msg.cmd);
     let cmd = args.shift();
 
     let child = spawn(cmd, args, {detached: true});
-    console.log("Running "+data.cmd);
+    console.log("Running "+msg.cmd);
 
-    let job = new Job("JOB", data.pool, data.cmd, child.pid, "" ,null, "");
-    
+    jobList.push(new Job("JOB", msg.pool, msg.cmd, child.pid, "" ,null, ""))
+
     child.stdout.setEncoding('utf8');
 
     child.stdout.on('data', (data) => {
-        job.result = job.result+data.replace(/[\n\r]/g, ""); // Concatenate stdout without line break
-        client.write(JSON.stringify(job));
+        jobList[jobList.findIndex( j => (j.pool.toString() === msg.pool ))].result += data.replace(/[\n\r]/g, ""); // Concatenate stdout without line break
     });  
 
     child.stderr.on('data', (data) => {
-        job.result = job.result+data
-        client.write(JSON.stringify(job));
+        jobList[jobList.findIndex( j => (j.pool.toString() === msg.pool ))].result += data.replace(/[\n\r]/g, ""); // Concatenate stdout without line break
     }); 
 
     child.on('error', (err) => {
@@ -90,14 +107,11 @@ function execJob(data){
     }); 
     
     child.on('exit', function(exitCode) {
-        job.time_to_calc = (Math.floor(Date.now()) - data.pool);
-        job.result = job.result;
-        job.status = exitCode;
-        setTimeout(function () { client.write(JSON.stringify(job)); }, 1000); // We need to wait in case of previously stdout listener just send data (avoid dual job on same socket)
+        jobList[jobList.findIndex( j => (j.pool.toString() === msg.pool ))].time_to_calc = (Math.floor(Date.now()) - msg.pool);
+        jobList[jobList.findIndex( j => (j.pool.toString() === msg.pool ))].status = exitCode;
     })
+
 }
-
-
 
 
 

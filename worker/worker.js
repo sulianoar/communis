@@ -97,11 +97,9 @@ function execJob(data){
         job.time_to_calc = (Math.floor(Date.now()) - data.pool);
         job.result = job.result;
         job.status = exitCode;
-        client.write(JSON.stringify(job)+"EOM"); // We need to wait in case of previously stdout listener just send data (avoid dual job on same socket)
+        client.write(JSON.stringify(job)+"EOM");
     })
 
-    //Virer les child.on pour les remplacer par une boucle qui client.write toute les 5secondes en cas de modification de "pool" 
-    //qui s'expliquerai par un nouveau job ou une nouveau bout de resultat. Apres ce client.write(), enever les
 }
 
 

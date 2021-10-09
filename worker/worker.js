@@ -7,7 +7,7 @@ const os = require("os");
 const spawn = require('child_process').spawn;
 const {parseArgsStringToArgv} = require('string-argv');
 
-const masterAdress = '127.0.0.1';
+const masterAdress = '10.10.0.1';
 const masterPort = 7000;
 const waitBeforeRetryOnConnError = 3000;
 

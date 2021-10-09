@@ -6,7 +6,7 @@ const net = require('net');
 const express = require('express');
 const bodyParser = require('body-parser');
 
-const masterAdress = '127.0.0.1';
+const masterAdress = '10.10.0.1';
 const masterPort = 7000;
 const webClientPort = 80;
 const poolRetention = 300000; // 5minutes

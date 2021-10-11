@@ -150,6 +150,13 @@ net.createServer(function(socket) {
             workersClients = workersClients.filter(w => { return w.id !== quitClient[0].id; });
         }
     })
+
+    socket.on('close', (s) => {
+        let quitClient =  workersClients.filter(w => { return w.socket.remoteAddress === socket.remoteAddress && w.socket.remotePort === socket.remotePort;});
+        console.error('   [ - ] ' + quitClient[0].id + ' disconnected');
+        workersClients = workersClients.filter(w => { return w.id !== quitClient[0].id; });
+    })
+
 }).listen(masterPort, masterAdress);
 console.log('[ + ] Master listening for worker on ' + masterAdress +':'+ masterPort);
 

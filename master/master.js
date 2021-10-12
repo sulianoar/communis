@@ -1,5 +1,6 @@
 /*
 Communis master's agent
+TODO : add UUID => https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
 */
 
 const net = require('net');

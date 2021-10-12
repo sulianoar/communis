@@ -1,7 +1,14 @@
+// TODO :
+// - Add uptime
+
 const fetch = require('node-fetch');
 const Influx = require("influx");
 
 const masterApiAdress = "http://127.0.0.1"
+
+
+const controller = new AbortController()
+const timeoutId = setTimeout(() => controller.abort(), 3000)
 
 const influx = new Influx.InfluxDB({
   host: "127.0.0.1",
@@ -39,10 +46,12 @@ var previousWorker = [];
 
 async function run(){
     let workers = await getWorkers();
-    getTemperature(workers);
-    getMemoryUsage(workers);
-    getCpuUsage(workers);
-    getWorkerInfo(workers);
+    if (workers){
+        getTemperature(workers);
+        getMemoryUsage(workers);
+        getCpuUsage(workers);
+        getWorkerInfo(workers);
+    }
     setTimeout(function() { run(); }, 5000); // Execute all every 5s
 }
 
@@ -127,12 +136,15 @@ function writeToDb(measurement, worker, value) {
     });
 }
 
+
+
 async function getWorkers(){
-    return await fetch(masterApiAdress+"/workers").then(response => response.json());
+    return await fetch(masterApiAdress+"/workers", { signal: controller.signal } ).then(response => response.json());
 }
 
 async function createJob(workersIds, cmd){
     let jobOpts = {
+        signal: controller.signal,
         method: "POST", 
         headers: { "Content-Type": "application/json" }, 
         body: JSON.stringify( {cmd:cmd, workers: workersIds}) 
@@ -141,5 +153,5 @@ async function createJob(workersIds, cmd){
 }
 
 async function getPool(poolId){
-    return await fetch(masterApiAdress+"/pool/"+poolId).then(response => response.json());
+    return await fetch(masterApiAdress+"/pool/"+poolId, { signal: controller.signal }).then(response => response.json());
 }

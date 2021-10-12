@@ -1,10 +1,10 @@
 const fetch = require('node-fetch');
 const Influx = require("influx");
 
-const masterApiAdress = "http://192.168.0.88"
+const masterApiAdress = "http://127.0.0.1"
 
 const influx = new Influx.InfluxDB({
-  host: "192.168.0.88",
+  host: "127.0.0.1",
   database: "clusterdb",
   username: "grafana",
   password: "grafana",
@@ -74,7 +74,6 @@ async function getCpuUsage(w){
 }
 
 async function getWorkerInfo(workers){
-
     let workerIds = workers.map(a => a.id);
 
     let newOnlineWorker = workerIds.filter(x => !previousWorker.includes(x)); // Return all worker not already in previousWorker
@@ -86,24 +85,29 @@ async function getWorkerInfo(workers){
     }
     for (offline of newOfflineWorker){
         writeToDb("info", offline, {online:false, adress:""});
-        previousWorker.splice(workers.findIndex(w => (w.id === offline)), 1);
+        previousWorker.splice(previousWorker.indexOf(offline), 1);
     }
-
-
 }
 
-async function saveJobResult(measurement, poolId){
+async function saveJobResult(measurement, poolId, tryBeforeClean=0){
     pool = await getPool(poolId);
-    if (pool && pool[0].status !== null){ // If all job are done
-        for (let job of pool[0].jobs) {
-            if (job.status === 0){ // If job is done without error we can save result to bdd
-                writeToDb(measurement, job.worker_id,  {value : parseFloat(job.result.match(/[\d.]+/))});
-            } else {
-                console.log("Job in pool "+poolId+" from "+job.worker_id+" finished with error")
+    if (tryBeforeClean !== 50){ // MAX Time to get job done is 50s (50*1000ms)
+        if (pool && pool[0].status !== null){ // If all job are done
+            for (let job of pool[0].jobs) {
+                if (job.status === 0){ // If job is done without error we can save result to bdd
+                    writeToDb(measurement, job.worker_id,  {value : parseFloat(job.result.match(/[\d.]+/))});
+                } else {
+                    console.log("Job in pool "+poolId+" from "+job.worker_id+" finished with error")
+                }
             }
+        } else{
+            setTimeout(function() { 
+                tryBeforeClean = tryBeforeClean+1;
+                saveJobResult(measurement, poolId, tryBeforeClean); 
+            }, 1000); // Retry to get result until status is done
         }
-    } else{
-        setTimeout(function() { saveJobResult(measurement, poolId); }, 1000); // Retry to get result until status is done
+    } else {
+        console.log("Pool "+poolId+" not responding for 50 seconds, pass")
     }
 }
 

@@ -146,16 +146,16 @@ net.createServer(function(socket) {
     socket.on('error', (err) => {
         if (err.code === 'ECONNRESET'){
             let quitClient =  workersClients.filter(w => { return w.socket.remoteAddress === socket.remoteAddress && w.socket.remotePort === socket.remotePort;});
-            console.error('   [ - ] ' + quitClient[0].id + ' disconnected');
-            workersClients = workersClients.filter(w => { return w.id !== quitClient[0].id; });
+            console.error('   [ ! ] ' + quitClient[0].id + ' ECONNRESET');
         }
-    })
+    });
 
     socket.on('close', (s) => {
         let quitClient =  workersClients.filter(w => { return w.socket.remoteAddress === socket.remoteAddress && w.socket.remotePort === socket.remotePort;});
         console.error('   [ - ] ' + quitClient[0].id + ' disconnected');
         workersClients = workersClients.filter(w => { return w.id !== quitClient[0].id; });
-    })
+        stopAllClientJobs(quitClient[0].id, " Job stopped due to socket close");
+    });
 
 }).listen(masterPort, masterAdress);
 console.log('[ + ] Master listening for worker on ' + masterAdress +':'+ masterPort);
@@ -196,13 +196,26 @@ function killJob(workers, poolId){
     }
 }
 
+function stopAllClientJobs(workerId, errorMessage){
+    for (let pool of poolList) {
+        let poolIndex = poolList.findIndex( p => (p.id === pool.id )); // Search for this pool in poolList
+        let jobIndex = poolList[poolIndex].jobs.findIndex( (j) => j.worker_id === workerId ); // Search for this job in that pool
+        if (jobIndex !== -1 && poolList[poolIndex].jobs[jobIndex].status === null){ // If job exist for this worker and still not finished
+            poolList[poolIndex].jobs[jobIndex].status = 1;
+            poolList[poolIndex].jobs[jobIndex].result += errorMessage;
+            if(poolList[poolIndex].jobs.findIndex( (j) => j.status === null ) === -1) { // If there are no more running job in this pool
+                poolList[poolIndex].status = 1;
+                poolList[poolIndex].cached_at = Math.floor(Date.now()); // Setup cache timestamp
+            }
+        }
+    }
+}
+
 async function cleanPool(){
     poolList = poolList.filter(p => {
         return p.status === null || (p.cached_at+poolRetention) >= Math.floor(Date.now());
     });
 }
-
-
 
 
 

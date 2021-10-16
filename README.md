@@ -1,3 +1,3 @@
 # communis
 
-Raspberry pi cluster project for group calculation arriving at a correct decision
+Parallel computing communication interface using raspberry pi.
